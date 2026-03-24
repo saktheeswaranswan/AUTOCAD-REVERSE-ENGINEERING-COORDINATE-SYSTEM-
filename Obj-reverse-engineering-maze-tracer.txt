@@ -1,0 +1,207 @@
+ Maze tracker p5js
+
+
+
+// Maze Tracer 3D — p5.js (WEBGL) FIXED
+
+const PX_PER_M = 100;
+const EDGE_M = 2.0;
+const EDGE_PX = EDGE_M * PX_PER_M;
+
+const TRACE_DURATION_MS = 12000;
+const DWELL_MS = 500;
+
+let extPointsPx = [];
+
+// Tracer
+let lastMillis;
+let tSeg = 0;
+let segIdx = 0;
+let paused = false;
+let atVertex = true;
+let dwellRemaining = DWELL_MS;
+
+// OBJ DATA
+const RAW_OBJ_VERTS = `
+v -11.6719 8.96122 -147.218
+v -10.4565 8.76028 -147.941
+v -11.7773 10.5791 -147.598
+v -10.0773 10.6389 -148.881
+v -8.90512 8.74742 -147.801
+v -12.1441 9.37482 -144.88
+v -9.42928 10.6277 -148.826
+v -12.0561 11.766 -147.028
+v -10.9309 8.37156 -144.347
+v -8.78389 10.6165 -148.769
+`;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight, WEBGL);
+  parseAndFitOBJ();
+  resetTracer();
+  lastMillis = millis();
+}
+
+function draw() {
+  let now = millis();
+  let dt = now - lastMillis;
+  lastMillis = now;
+
+  if (!paused) advanceTracer(dt);
+
+  background(255);
+  orbitControl();
+
+  drawAxes();
+  drawBox();
+
+  drawPolyline();
+  drawPoints();
+
+  let p = getTracer();
+
+  push();
+  translate(p.x, p.y, p.z);
+  fill(255, 0, 0);
+  noStroke();
+  sphere(8);
+  pop();
+}
+
+// ---------- FIXED PARSER ----------
+function parseAndFitOBJ() {
+  let lines = RAW_OBJ_VERTS.trim().split("\n");
+  let raw = [];
+
+  for (let ln of lines) {
+    let tok = ln.trim().split(/\s+/);
+    if (tok[0] === "v") {
+      raw.push(createVector(Number(tok[1]), Number(tok[2]), Number(tok[3])));
+    }
+  }
+
+  if (raw.length === 0) return;
+
+  // ✅ Manual min/max (FIX)
+  let minX = raw[0].x, minY = raw[0].y, minZ = raw[0].z;
+  let maxX = raw[0].x, maxY = raw[0].y, maxZ = raw[0].z;
+
+  for (let p of raw) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.z < minZ) minZ = p.z;
+
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+    if (p.z > maxZ) maxZ = p.z;
+  }
+
+  let sizeX = maxX - minX;
+  let sizeY = maxY - minY;
+  let sizeZ = maxZ - minZ;
+
+  let maxDim = Math.max(sizeX, sizeY, sizeZ);
+  if (maxDim === 0) maxDim = 1;
+
+  let scale = (EDGE_M * 0.8) / maxDim;
+
+  extPointsPx = [];
+
+  for (let p of raw) {
+    let nx = (p.x - minX) * scale;
+    let ny = (p.y - minY) * scale;
+    let nz = (p.z - minZ) * scale;
+
+    extPointsPx.push(createVector(nx * PX_PER_M, ny * PX_PER_M, nz * PX_PER_M));
+  }
+}
+
+// ---------- DRAW ----------
+function drawBox() {
+  noFill();
+  stroke(0);
+  box(EDGE_PX);
+}
+
+function drawAxes() {
+  strokeWeight(3);
+
+  stroke(255, 0, 0);
+  line(0, 0, 0, 200, 0, 0);
+
+  stroke(0, 255, 0);
+  line(0, 0, 0, 0, 200, 0);
+
+  stroke(0, 0, 255);
+  line(0, 0, 0, 0, 0, 200);
+}
+
+function drawPolyline() {
+  stroke(0, 100, 200);
+  noFill();
+  beginShape();
+  for (let p of extPointsPx) {
+    vertex(p.x, p.y, p.z);
+  }
+  endShape();
+}
+
+function drawPoints() {
+  fill(0, 150, 255);
+  noStroke();
+  for (let p of extPointsPx) {
+    push();
+    translate(p.x, p.y, p.z);
+    sphere(4);
+    pop();
+  }
+}
+
+// ---------- TRACER ----------
+function resetTracer() {
+  segIdx = 0;
+  tSeg = 0;
+  atVertex = true;
+  dwellRemaining = DWELL_MS;
+}
+
+function advanceTracer(dt) {
+  let n = extPointsPx.length;
+  if (n < 2) return;
+
+  let segMs = TRACE_DURATION_MS / (n - 1);
+
+  if (atVertex) {
+    dwellRemaining -= dt;
+    if (dwellRemaining <= 0) {
+      atVertex = false;
+      segIdx++;
+      if (segIdx >= n - 1) segIdx = 0;
+      tSeg = 0;
+    }
+    return;
+  }
+
+  tSeg += dt / segMs;
+
+  if (tSeg >= 1) {
+    tSeg = 1;
+    atVertex = true;
+    dwellRemaining = DWELL_MS;
+  }
+}
+
+function getTracer() {
+  let a = extPointsPx[segIdx];
+  let b = extPointsPx[(segIdx + 1) % extPointsPx.length];
+
+  if (atVertex) return a;
+
+  return p5.Vector.lerp(a, b, tSeg);
+}
+
+// ---------- CONTROLS ----------
+function keyPressed() {
+  if (key === ' ') paused = !paused;
+  if (key === 'r' || key === 'R') resetTracer();
+}
