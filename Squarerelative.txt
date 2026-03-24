@@ -1,0 +1,98 @@
+Square p5js
+
+
+
+let points = [];
+let current = { x: -150, y: -150 }; // start in negative quadrant
+
+let moves = [
+  { dx: 200, dy: 0 },    // Right
+  { dx: 0, dy: 200 },    // Up (CAD style)
+  { dx: -200, dy: 0 },   // Left
+  { dx: 0, dy: -200 }    // Down
+];
+
+let step = 0;
+
+function setup() {
+  createCanvas(500, 500);
+  frameRate(1);
+
+  points.push({ ...current });
+}
+
+function draw() {
+  background(240);
+
+  // 👉 Move origin to center (IMPORTANT)
+  translate(width / 2, height / 2);
+
+  drawGrid(25);
+
+  // Draw axis lines (X & Y)
+  stroke(0);
+  line(-width/2, 0, width/2, 0); // X-axis
+  line(0, -height/2, 0, height/2); // Y-axis
+
+  // Draw path
+  stroke(0);
+  noFill();
+  beginShape();
+  for (let p of points) {
+    vertex(p.x, -p.y); // invert Y to match CAD
+  }
+  endShape();
+
+  // 🔴 Moving coordinate system
+  push();
+  translate(current.x, -current.y);
+
+  fill('red');
+  circle(0, 0, 8);
+
+  // Local axes
+  stroke('blue');
+  line(0, 0, 40, 0); // X
+
+  stroke('green');
+  line(0, 0, 0, -40); // Y (upward)
+
+  pop();
+
+  // Show coordinate text
+  resetMatrix(); // go back to screen space
+  fill(0);
+  text(`(${current.x}, ${current.y})`, 20, 20);
+
+  // Apply movement
+  if (step < moves.length) {
+    moveRelative(moves[step].dx, moves[step].dy);
+    step++;
+  }
+}
+
+// Relative movement
+function moveRelative(dx, dy) {
+  current.x += dx;
+  current.y += dy;
+
+  points.push({ ...current });
+
+  console.log(`@${dx},${dy} → (${current.x}, ${current.y})`);
+}
+
+// Grid centered at (0,0)
+function drawGrid(size) {
+  stroke(220);
+
+  for (let x = -width/2; x <= width/2; x += size) {
+    line(x, -height/2, x, height/2);
+  }
+
+  for (let y = -height/2; y <= height/2; y += size) {
+    line(-width/2, y, width/2, y);
+  }
+}
+
+
+
