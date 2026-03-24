@@ -1,0 +1,100 @@
+Hexagon p5js code
+
+
+
+ let points = [];
+let current = { x: -100, y: -100 }; // start point
+
+let moves = [];
+let step = 0;
+let side = 100; // hexagon side length
+
+function setup() {
+  createCanvas(500, 500);
+  frameRate(1);
+
+  // 🔷 Generate hexagon moves (6 sides, 60° each)
+  for (let i = 0; i < 6; i++) {
+    let angle = radians(60 * i); // 0,60,120...300
+
+    let dx = side * cos(angle);
+    let dy = side * sin(angle);
+
+    moves.push({ dx, dy });
+  }
+
+  points.push({ ...current });
+}
+
+function draw() {
+  background(240);
+
+  // 👉 Center origin
+  translate(width / 2, height / 2);
+
+  drawGrid(25);
+
+  // Axis
+  stroke(0);
+  line(-width/2, 0, width/2, 0);
+  line(0, -height/2, 0, height/2);
+
+  // 🔷 Draw path
+  stroke(0);
+  noFill();
+  beginShape();
+  for (let p of points) {
+    vertex(p.x, -p.y); // CAD-style Y flip
+  }
+  endShape(CLOSE);
+
+  // 🔴 Moving local coordinate system
+  push();
+  translate(current.x, -current.y);
+
+  fill('red');
+  circle(0, 0, 8);
+
+  // Local axes
+  stroke('blue');
+  line(0, 0, 40, 0);
+
+  stroke('green');
+  line(0, 0, 0, -40);
+
+  pop();
+
+  // Text (screen space)
+  resetMatrix();
+  fill(0);
+  text(`(${current.x.toFixed(1)}, ${current.y.toFixed(1)})`, 20, 20);
+
+  // 🔷 Apply movement step-by-step
+  if (step < moves.length) {
+    moveRelative(moves[step].dx, moves[step].dy);
+    step++;
+  }
+}
+
+// 🔁 Relative movement
+function moveRelative(dx, dy) {
+  current.x += dx;
+  current.y += dy;
+
+  points.push({ ...current });
+
+  console.log(`@${dx.toFixed(1)},${dy.toFixed(1)} → (${current.x.toFixed(1)}, ${current.y.toFixed(1)})`);
+}
+
+// 🔲 Grid
+function drawGrid(size) {
+  stroke(220);
+
+  for (let x = -width/2; x <= width/2; x += size) {
+    line(x, -height/2, x, height/2);
+  }
+
+  for (let y = -height/2; y <= height/2; y += size) {
+    line(-width/2, y, width/2, y);
+  }
+}
