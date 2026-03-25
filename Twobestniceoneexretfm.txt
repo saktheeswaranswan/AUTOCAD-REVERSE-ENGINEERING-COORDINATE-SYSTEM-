@@ -1,0 +1,165 @@
+
+let points = [];
+let path = [];
+let index = 0;
+
+let current = { x: 0, y: 0 };
+
+let moving = false;
+let startPos, targetPos;
+
+let progress = 0;
+let speed = 0.02;
+
+// relative (auto-calculated)
+let relX = 0;
+let relY = 0;
+
+// camera + zoom
+let cam = { x: 0, y: 0 };
+let zoom = 1;
+
+function setup() {
+  createCanvas(600, 600);
+  frameRate(60);
+
+  // 🔷 Absolute path (your data)
+  path = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 20 },
+    { x: 60, y: 20 },
+    { x: 60, y: 120 },
+    { x: 100, y: 120 },
+    { x: 100, y: 140 },
+    { x: 0, y: 140 },
+    { x: 0, y: 120 },
+    { x: 40, y: 120 },   // ✅ FIXED (missing comma)
+    { x: 40, y: 20 },
+    { x: 0, y: 20 },
+    { x: 0, y: 0 }
+  ];
+
+  current = { ...path[0] };
+  points.push({ ...current });
+  index = 1;
+}
+
+function draw() {
+  background(240);
+
+  // 📷 Camera follow
+  cam.x = lerp(cam.x, current.x, 0.1);
+  cam.y = lerp(cam.y, current.y, 0.1);
+
+  translate(width / 2, height / 2);
+
+  // 🔍 Zoom + camera
+  scale(zoom, -zoom);
+  translate(-cam.x, -cam.y);
+
+  drawGrid(50);
+
+  // 🔷 Draw boundary
+  stroke(0);
+  noFill();
+  beginShape();
+  for (let p of points) {
+    vertex(p.x, p.y);
+  }
+  endShape();
+
+  // 🔴 Red point
+  fill("red");
+  noStroke();
+  circle(current.x, current.y, 10 / zoom);
+
+  // 🧭 Local axes
+  push();
+  translate(current.x, current.y);
+
+  strokeWeight(2 / zoom);
+
+  stroke("red");
+  line(0, 0, 50, 0);
+
+  stroke("green");
+  line(0, 0, 0, 50);
+
+  pop();
+
+  // 📝 Text on point
+  push();
+  scale(1, -1);
+  fill(0);
+  textSize(12 / zoom);
+  text(
+    `(${current.x.toFixed(1)}, ${current.y.toFixed(1)})\n@(${relX.toFixed(1)}, ${relY.toFixed(1)})`,
+    current.x + 10,
+    -current.y - 10
+  );
+  pop();
+
+  updateMotion();
+}
+
+function updateMotion() {
+  if (!moving && index < path.length) {
+    startPos = { ...current };
+    targetPos = { ...path[index] };
+
+    progress = 0;
+    relX = 0;
+    relY = 0;
+
+    moving = true;
+  }
+
+  if (moving) {
+    progress += speed;
+
+    let t = constrain(progress, 0, 1);
+
+    // 🔷 Move along edge
+    current.x = lerp(startPos.x, targetPos.x, t);
+    current.y = lerp(startPos.y, targetPos.y, t);
+
+    // 🔥 Relative auto calculation
+    relX = current.x - startPos.x;
+    relY = current.y - startPos.y;
+
+    if (t >= 1) {
+      current = { ...targetPos };
+      points.push({ ...current });
+
+      moving = false;
+      index++;
+    }
+  }
+}
+
+// 🔲 Grid
+function drawGrid(size) {
+  stroke(220);
+  strokeWeight(1 / zoom);
+
+  for (let x = -3000; x <= 3000; x += size) {
+    line(x, -3000, x, 3000);
+  }
+
+  for (let y = -3000; y <= 3000; y += size) {
+    line(-3000, y, 3000, y);
+  }
+}
+
+// 🔍 Zoom
+function mouseWheel(event) {
+  let factor = 1.05;
+
+  if (event.delta > 0) zoom /= factor;
+  else zoom *= factor;
+
+  zoom = constrain(zoom, 0.2, 5);
+
+  return false;
+}
